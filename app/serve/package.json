@@ -1,0 +1,28 @@
+{
+  "name": "serve",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "node dist/prompt.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.25.0",
+  "dependencies": {
+    "@langchain/classic": "^1.0.6",
+    "@langchain/community": "^1.0.7",
+    "@langchain/core": "^1.1.4",
+    "@langchain/langgraph": "^1.0.5",
+    "@langchain/ollama": "^1.0.3",
+    "langchain": "^1.1.5",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0"
+  }
+}

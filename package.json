@@ -1,0 +1,17 @@
+{
+  "name": "ONE-AI",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "fanxiaosi",
+  "license": "ISC",
+  "packageManager": "pnpm@10.25.0",
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}

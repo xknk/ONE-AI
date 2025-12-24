@@ -1,0 +1,6 @@
+/node_modules
+/app/serve/dist
+/app/serve/node_modules
+/app/client/mobile/dist
+/app/client/mobile/node_modules
+/.claude
