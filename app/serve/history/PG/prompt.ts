@@ -1,15 +1,14 @@
 /*
  * @Author: Robin LEI
  * @Date: 2025-12-11 09:38:48
- * @LastEditTime: 2025-12-22 17:15:10
- * @FilePath: \ONE-AI\app\serve\src\prompt.ts
+ * @LastEditTime: 2025-12-24 10:50:21
+ * @FilePath: \ONE-AI\app\serve\history\PG\prompt.ts
  */
 import { ChatOllama } from "@langchain/ollama";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { RunnableWithMessageHistory, RunnableLambda, RunnableSequence, RunnablePassthrough } from "@langchain/core/runnables";
 import { addMessageToVectorStore, retrieveRelevantHistory } from "./embeddings/mxbai-embed-large.js";
 import { PostgresChatMessageHistory } from "@langchain/community/stores/message/postgres"; // 引入持久化存储
-
 import http from "node:http"
 import querystring from "node:querystring"; // 新增：解析请求参数
 
@@ -24,7 +23,7 @@ const pgConfig = {
 };
 
 // 1、创建llm实例
-const llm = new ChatOllama({
+const llm: any = new ChatOllama({
     model: 'qwen2.5:7b',
     baseUrl: "http://127.0.0.1:11434", // 使用IPv4地址避免连接问题
     topP: 0.9,
@@ -66,25 +65,20 @@ const retrieveStep = RunnableLambda.from(async (input: { user_input: string; ses
     return history === "无相关背景知识" ? "" : history;
 });
 // 3、重构链式调用：先格式化历史，再注入模板
-const ragChain = RunnableSequence.from([
-    // 第一步：确保所有下游需要的参数都在对象中
-    customCheckStep, // 新增：敏感词检查步骤
-    // 步骤2：透传参数 + 注入会话ID + 检索相似历史
-    // 注意：不要重新定义输入对象，否则会覆盖 RunnableWithMessageHistory 注入的 chat_history
-    {
-        // 提取输入
-        user_input: (input) => input.user_input,
-        sessionId: (_input, config) => config.configurable?.sessionId,
-        chat_history: (input) => input.chat_history,
-    },
-    RunnablePassthrough.assign({
-        relevant_history: retrieveStep, // 检索相似历史（核心RAG步骤）
-    }),
-    // 第二步：注入到提示词模板（user_input 和 chat_history 会自动从输入中获取）
-    textPrompt,
-    // 第三步：调用LLM
-    llm,
-]);
+const ragChain = customCheckStep
+    .pipe({
+        user_input: (input: any) => input.user_input,
+        sessionId: (_input: any, config: any) => config.configurable?.sessionId,
+        chat_history: (input: any) => input.chat_history,
+    })
+    .pipe(
+        RunnablePassthrough.assign({
+            relevant_history: retrieveStep,
+        })
+    )
+    .pipe(textPrompt)
+    .pipe(llm);
+
 
 // 2、修复提示词模板：仅保留核心逻辑，依赖格式化后的历史
 const textChainWithHistory = new RunnableWithMessageHistory<any, any>({

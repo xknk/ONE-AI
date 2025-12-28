@@ -1,7 +1,7 @@
 /*
  * @Author: Robin LEI
  * @Date: 2025-12-17 12:49:51
- * @LastEditTime: 2025-12-24 08:44:00
+ * @LastEditTime: 2025-12-24 14:51:36
  * @FilePath: \ONE-AI\app\serve\src\embeddings\mxbai-embed-large.ts
  */
 import { OllamaEmbeddings } from "@langchain/ollama";
@@ -81,20 +81,21 @@ export const retrieveRelevantHistory = async (
 
     // 配置检索器：针对 sessionId 物理隔离，并使用 MMR 减少冗余
     const retriever = vectorStore.asRetriever({
-        searchType: "mmr",
-        searchKwargs: {
-            fetchK: 20,
-            lambda: 0.7,
-        },
-        k: 3, // 小模型 1.5B 建议设为 3，多则乱
+        searchType: "similarity", // 使用相似度搜索 （也可以尝试 "mmr"）
+        // searchKwargs: {
+        //     fetchK: 20,
+        //     lambda: 0.7,
+        // },
+        k: 2, // 小模型 1.5B 建议设为 3，多则乱
         filter: { sessionId }, // 确保只搜当前用户/当前会话的知识
     });
-
     const relevantDocs = await retriever.invoke(userInput);
-    return relevantDocs.length > 0
+    const context = relevantDocs.length > 0
         ? relevantDocs.map(doc => {
             return doc.pageContent
         }).join("\n\n")
         : "无相关背景信息";
+    // 强制截断，防止撑爆 LLM 上下文
+    return context.length > 800  ? context.substring(0, 800) + "..." : context;
 
 };
