@@ -1,17 +1,17 @@
 /*
  * @Author: Robin LEI
- * @Date: 2025-12-11 09:38:48
- * @LastEditTime: 2025-12-24 16:45:03
- * @FilePath: \ONE-AI\app\serve\src\agent.ts
+ * 分析：该模块是一个集成 LangGraph 状态机、PostgreSQL 记忆存储、
+ * 以及 Ollama 本地模型的智能 Agent 服务端。
  */
 import { ChatOllama } from "@langchain/ollama";
-import { PostgresChatMessageHistory } from "@langchain/community/stores/message/postgres"; // 引入持久化存储
+import { PostgresChatMessageHistory } from "@langchain/community/stores/message/postgres";
 import http from "node:http"
-import querystring from "node:querystring"; // 新增：解析请求参数
+import querystring from "node:querystring";
 import { MessagesAnnotation, StateGraph, START, END, Annotation } from "@langchain/langgraph";
 import { tools, toolNode } from "./embeddings/tool.js";
 import { getAgentPrompt } from "./prompts/loader.js"
-// 1. 配置与实例初始化
+
+// 1. 数据库配置：用于存储聊天记录
 const pgConfig = {
     host: "127.0.0.1",
     port: 5432,
@@ -20,75 +20,73 @@ const pgConfig = {
     database: "One-AI-DB",
 };
 
-// 1、创建llm实例
+// 2. 初始化 LLM 模型
 const llm: any = new ChatOllama({
     model: 'qwen2.5:3b',
-    baseUrl: "http://127.0.0.1:11434", // 使用IPv4地址避免连接问题
+    baseUrl: "http://127.0.0.1:11434",
     topP: 0.9,
     topK: 40,
-    streaming: true,
-    temperature: 0,
-    repeatPenalty: 1.2,  // 防止模型在多轮对话后开始复读系统指令
-    numPredict: 512, // 限制单次回复长度
-
+    streaming: true, // 开启流式响应
+    temperature: 0, // 设为 0 保证逻辑严谨，减少幻觉
+    repeatPenalty: 1.2,
+    numPredict: 512,
 })
 
-
-// 绑定工具到模型
+// 将工具绑定到模型，使模型知道自己可以调用哪些外部函数
 const modelWithTools = llm.bindTools(tools);
-// --- 1. 定义状态 (解决 userName 类型报错) ---
+
+// 3. 定义全局状态 (State)
+// 这里决定了在整个对话流中，哪些数据是可以被读取和修改的
 const MyStateAnnotation = Annotation.Root({
-    ...MessagesAnnotation.spec,
+    ...MessagesAnnotation.spec, // 包含默认的 messages 数组 如： HumanMessage, AIMessage, ToolMessage
     userName: Annotation<string>({
-        reducer: (oldV, newV) => newV ?? oldV,
+        reducer: (oldV, newV) => newV ?? oldV, // 状态更新逻辑 - 如果有新用户就用新用户，如果没有就用旧得用户，默认值为“访客”
         default: () => "访客",
     }),
-    // userId: Annotation<string>(),       // 数据库唯一ID，用于物理隔离
-    // orgId: Annotation<string>(),        // 企业/部门ID，用于权限控制
-    // permissions: Annotation<string[]>(), // 工具调用权限清单
-    // 2. 业务上下文
-    // currentProject: Annotation<string>(), // 正在讨论的项目
-    // traceId: Annotation<string>(),       // 全链路追踪 ID，方便排查报错
-    // 3. 记忆摘要 (解决长对话卡死)
-    summary: Annotation<string>({       // 存储前 20 轮对话的压缩摘要
+    summary: Annotation<string>({ // 预留摘要字段，用于处理超长上下文
         reducer: (old, next) => next ?? old
     }),
 })
 
-// 节点 1: 模型推理
+// 节点 (Node) 1: 模型推理逻辑
 async function callModel(state: typeof MyStateAnnotation.State) {
-    const systemContent = getAgentPrompt({
-        // 这里可以注入动态信息
+    // 获取系统提示词，注入动态上下文（如当前时间、用户名）
+    let systemContent = getAgentPrompt({
         currentTime: new Date().toLocaleString(),
         userName: state.userName || "访客"
     });
-    const systemPrompt = {
-        role: "system",
-        content: systemContent
-    };
-    // 优化：只取最近 10 条对话历史送入模型，防止上下文无限增长导致卡死
-    // const inputMessages = [systemPrompt, ...state.messages.slice(-10)];
-    // 确保系统提示词在首位
-    const response = await modelWithTools.invoke([systemPrompt, ...state.messages]);
-    return { messages: [response] };
+    // 2. 如果存在摘要 (summary)，将其注入到系统提示词中
+    // 这样模型即便看不到旧的消息，也能通过摘要了解之前的上下文
+    if (state.summary) {
+        systemContent += `\n\n[历史对话摘要]: ${state.summary}`;
+    }
+    const systemPrompt = { role: "system", content: systemContent };
+    /**
+     * 3. 消息切片 (Windowing)
+     * 不再发送 state.messages 中的全部消息，只取最近的 6 条。
+     * 这样可以确保 Ollama 不会因为上下文太长而变得缓慢或卡死。
+     */
+    const recentMessages = state.messages.slice(-10);
+    // 执行模型调用：组合系统提示词和历史消息
+    const response = await modelWithTools.invoke([systemPrompt, ...recentMessages]);
+    return { messages: [response] }; // 更新状态中的 messages
 }
 
-// 定义逻辑流
+// 4. 构建工作流图 (LangGraph)
 const workflow = new StateGraph(MyStateAnnotation)
-    .addNode("agent", callModel)
-    .addNode("tools", toolNode)
-    .addEdge(START, "agent")
+    .addNode("agent", callModel)      // 定义推理节点
+    .addNode("tools", toolNode)       // 定义工具执行节点
+    .addEdge(START, "agent")          // 入口
     .addConditionalEdges("agent", (state) => {
-        console.log(state)
+        // 条件分支：判断模型是否需要调用工具
         const lastMessage = state.messages[state.messages.length - 1];
-        // 如果模型输出了 tool_calls，则进入 tools 节点，否则结束
         return (lastMessage as any).tool_calls?.length ? "tools" : END;
     })
-    .addEdge("tools", "agent"); // 工具执行后回到 agent 总结或继续
+    .addEdge("tools", "agent");       // 工具执行完后再次交给模型总结
 
-const appGraph = workflow.compile();
+const appGraph = workflow.compile(); // 编译生成可执行的 Graph
 
-// 新增：解析请求参数（GET/POST）
+// 5. 辅助函数：解析 HTTP 请求参数
 async function parseRequestParams(req: any) {
     const query = req.url?.split("?")[1] ? querystring.parse(req.url.split("?")[1]) : {};
     let body = {};
@@ -102,11 +100,11 @@ async function parseRequestParams(req: any) {
     return { ...query, ...body } as Record<string, string>;
 }
 
+// 6. 创建 HTTP Server 并处理请求
 const app = http.createServer(async (req, res) => {
-    // 优化 1：过滤浏览器自动请求的图标文件，直接返回 404
     if (req.url === "/favicon.ico") return (res.writeHead(404), res.end());
 
-    // CORS 处理
+    // 跨域设置
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -119,49 +117,52 @@ const app = http.createServer(async (req, res) => {
 
         if (!user_input) return (res.writeHead(400).end("Missing input"));
 
+        // 响应头：设置为 SSE 格式实现流式传输
         res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8" });
 
-        // 获取历史消息
+        // 初始化持久化记忆：从 Postgres 加载该用户的历史
         const history = new PostgresChatMessageHistory({
             tableName: "chat_messages",
             sessionId,
             poolConfig: pgConfig,
         });
-        const allPrevMessages = await history.getMessages();
-        const prevMessages = allPrevMessages.slice(-5);
 
-        // 运行 Graph
+        const allPrevMessages = await history.getMessages();
+        const prevMessages = allPrevMessages.slice(-5); // 只取最近5条，节省 Token
+
+        // 核心执行：运行图逻辑
         const stream = await appGraph.stream(
             { messages: [...prevMessages, { role: "user", content: user_input }] },
             {
                 configurable: { sessionId },
-                recursionLimit: 5 // 如果超过5次迭代（工具调用+回复）强行终止
+                recursionLimit: 5 // 防死循环：限制工具调用次数
             },
-
         );
 
         let finalContent = "";
+        // 遍历流：监听节点输出并推送到前端
         for await (const chunk of stream) {
-            // LangGraph 流会返回不同节点的消息
             const agentMsg = chunk.agent?.messages?.[0];
             if (agentMsg?.content) {
                 const text = agentMsg.content;
                 finalContent += text;
+                // 按 SSE 协议格式发送数据块
                 res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
             }
         }
 
-        // 存储本次对话的消息到 Postgres (仅存对话流，不含向量)
+        // 7. 对话持久化：任务完成后将本次问答存入数据库
         await history.addUserMessage(user_input);
         if (finalContent) await history.addAIMessage(finalContent);
 
         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         res.end();
     } catch (e: any) {
-        console.error(e);
+        console.error("Server Error:", e);
         res.end(`data: ${JSON.stringify({ error: e.message })}\n\n`);
     }
 })
+
 app.listen(3000, async () => {
-    console.log("http://localhost:3000/")
+    console.log("ONE-AI Agent 启动成功: http://localhost:3000/")
 })
