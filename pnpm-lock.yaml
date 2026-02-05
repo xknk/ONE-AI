@@ -32,6 +32,9 @@ importers:
       '@langchain/ollama':
         specifier: ^1.0.3
         version: 1.0.3(@langchain/core@1.1.8(openai@6.10.0(ws@8.18.3)(zod@4.2.1)))
+      '@langchain/tavily':
+        specifier: ^1.2.0
+        version: 1.2.0(@langchain/core@1.1.8(openai@6.10.0(ws@8.18.3)(zod@4.2.1)))
       langchain:
         specifier: ^1.1.5
         version: 1.1.5(@langchain/core@1.1.8(openai@6.10.0(ws@8.18.3)(zod@4.2.1)))(openai@6.10.0(ws@8.18.3)(zod@4.2.1))(zod-to-json-schema@3.25.0(zod@4.2.1))
@@ -520,6 +523,12 @@ packages:
 
   '@langchain/openai@1.2.0':
     resolution: {integrity: sha512-r2g5Be3Sygw7VTJ89WVM/M94RzYToNTwXf8me1v+kgKxzdHbd/8XPYDFxpXEp3REyPgUrtJs+Oplba9pkTH5ug==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@langchain/core': ^1.0.0
+
+  '@langchain/tavily@1.2.0':
+    resolution: {integrity: sha512-aPLPgtw8+b/Rnr3H+X8H8z98T/Y7JuCE4B5eqRDHoEWgZvMDUFF7divqwQqCTMq2deQttlVrm5bN5JbKaAR7/w==}
     engines: {node: '>=20'}
     peerDependencies:
       '@langchain/core': ^1.0.0
@@ -1353,6 +1362,11 @@ snapshots:
       zod: 4.2.1
     transitivePeerDependencies:
       - ws
+
+  '@langchain/tavily@1.2.0(@langchain/core@1.1.8(openai@6.10.0(ws@8.18.3)(zod@4.2.1)))':
+    dependencies:
+      '@langchain/core': 1.1.8(openai@6.10.0(ws@8.18.3)(zod@4.2.1))
+      zod: 4.2.1
 
   '@langchain/textsplitters@1.0.1(@langchain/core@1.1.8(openai@6.10.0(ws@8.18.3)(zod@4.2.1)))':
     dependencies:

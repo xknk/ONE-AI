@@ -4,3 +4,6 @@
 /app/client/mobile/dist
 /app/client/mobile/node_modules
 /.claude
+/app/serve/src/config/env.ts
+/app/serve/*.env
+.env

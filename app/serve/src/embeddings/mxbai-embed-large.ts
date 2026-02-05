@@ -1,25 +1,27 @@
 /*
  * @Author: Robin LEI
  * @Date: 2025-12-17 12:49:51
- * @LastEditTime: 2025-12-24 14:51:36
- * @FilePath: \ONE-AI\app\serve\src\embeddings\mxbai-embed-large.ts
+ * @LastEditTime: 2026-01-30 17:17:43
+ * @FilePath: \lg-wms-admind:\自己搭建\AI\ONE-AI\app\serve\src\embeddings\mxbai-embed-large.ts
  */
 import { OllamaEmbeddings } from "@langchain/ollama";
 import { PGVectorStore } from "@langchain/community/vectorstores/pgvector";
+import { getConfig  } from "../config/env.js";
+const config = getConfig();
 
 // 1. 全局配置与模型实例
 const embeddingModel = new OllamaEmbeddings({
-    model: 'mxbai-embed-large',
-    baseUrl: "http://127.0.0.1:11434",
-    truncate: true,
+    model: config.OllamaEmbeddings.model,
+    baseUrl: config.OllamaEmbeddings.baseUrl,
+    truncate: config.OllamaEmbeddings.truncate,
 });
 
 const pgConfig = {
-    host: "127.0.0.1",
-    port: 5432,
-    user: "fanxiaosi",
-    password: "f15130026310.",
-    database: "One-AI-DB",
+    host: config.postgres.host,
+    port: config.postgres.port,
+    user: config.postgres.user,
+    password: config.postgres.password,
+    database: config.postgres.database,
 };
 
 // 2. 单例模式管理 VectorStore (避免为每个 session 创建重复的连接池)
