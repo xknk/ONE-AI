@@ -15,7 +15,7 @@ import { TavilySearch } from "@langchain/tavily";
  */
 const queryTool = tool(
     async ({ query }, config) => {
-        const sessionId = config.configurable?.sessionId;
+        const sessionId = config.configurable?.thread_id;
         try {
             const result = await retrieveRelevantHistory(query, sessionId);
             console.log("【queryTool 检索结果】", result);
@@ -41,7 +41,8 @@ const queryTool = tool(
  */
 const saveTool = tool(
     async ({ content }, config) => {
-        const sessionId = config.configurable?.sessionId;
+        const sessionId = config.configurable?.thread_id;
+        console.log("【saveTool 存储内容】", content, "【sessionId】", sessionId);
         await addMessageToVectorStore(sessionId, "Agent自主提取", content);
         return "【系统提示】信息已成功持久化存储。";
     },
@@ -70,7 +71,6 @@ const serachTool = tool(
             });
 
             const { results } = await searchEngine.invoke({ query });
-            console.log("【serachTool 搜索结果】", results);
             let finalOutput = "";
             if (typeof results === "string") {
                 finalOutput = results;

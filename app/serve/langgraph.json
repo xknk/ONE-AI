@@ -1,7 +1,7 @@
 {
   "$schema": "https://langgra.ph/schema.json",
   "graphs": {
-    "chat": "./src/agent.ts:graph"
+    "chat": "./src/create_agent.ts:graph"
   },
    "env": ".env"
 }

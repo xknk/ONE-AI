@@ -1,7 +1,7 @@
 /*
  * @Author: Robin LEI
  * @Date: 2025-12-17 14:41:24
- * @LastEditTime: 2026-01-30 17:17:31
+ * @LastEditTime: 2026-02-05 15:30:55
  * @Description: 优化后的 LangGraph Agent，强化了工具调用逻辑与模型响应控制
  */
 import { ChatOllama } from "@langchain/ollama";
@@ -21,7 +21,7 @@ const llm = new ChatOllama({
     topK: config.ollama.topK,
     streaming: config.ollama.streaming,
     temperature: 0, // 强制 0，防止模型在调用工具时产生幻觉废话
-    repeatPenalty: config.ollama.repeatPenalty,
+    repeatPenalty: config.ollama.repeatPenalty, // （重复惩罚） 是一个用于控制生成多样性、防止模型“卡带”或进入“复读机模式”的关键参数。
     numPredict: config.ollama.numPredict,
 });
 
