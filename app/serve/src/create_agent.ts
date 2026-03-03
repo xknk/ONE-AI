@@ -6,7 +6,6 @@
 import { ChatOllama } from "@langchain/ollama";
 import { createAgent, createMiddleware } from "langchain";
 import { ToolMessage, HumanMessage, AIMessage, BaseMessage, SystemMessage } from "@langchain/core/messages";
-import { Annotation } from "@langchain/langgraph"; // 必须引入，用于定义 UI 输入框
 import { tools } from "./embeddings/tool.js";
 import { getAgentPrompt } from "./prompts/loader.js";
 import { getConfig } from "./config/env.js";

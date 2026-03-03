@@ -1,8 +1,8 @@
 /*
- * @Author: Robin LEI
+ * @Author: Robin LEI 自定义工具类（其他类也可以复用）
  * @Date: 2026-02-05 16:39:13
- * @LastEditTime: 2026-02-05 16:39:24
- * @FilePath: \ONE-AI\app\serve\src\需求\toolDemo.ts
+ * @LastEditTime: 2026-02-11 11:41:22
+ * @FilePath: \ONE-AI\app\serve\src\案例\toolDemo.ts
  */
 import { StructuredTool } from "@langchain/core/tools";
 import { z } from "zod";

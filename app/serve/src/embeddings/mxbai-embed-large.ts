@@ -1,8 +1,8 @@
 /*
  * @Author: Robin LEI
  * @Date: 2025-12-17 12:49:51
- * @LastEditTime: 2026-01-30 17:17:43
- * @FilePath: \lg-wms-admind:\自己搭建\AI\ONE-AI\app\serve\src\embeddings\mxbai-embed-large.ts
+ * @LastEditTime: 2026-03-02 17:12:23
+ * @FilePath: \ONE-AI\app\serve\src\embeddings\mxbai-embed-large.ts
  */
 import { OllamaEmbeddings } from "@langchain/ollama";
 import { PGVectorStore } from "@langchain/community/vectorstores/pgvector";
